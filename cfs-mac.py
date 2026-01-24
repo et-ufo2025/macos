@@ -963,6 +963,7 @@ class CloudflareScanUI(QWidget):
                 padding-left: 10px;
                 font-family: "Helvetica Neue", "PingFang SC", sans-serif;
                 font-weight: 600;
+                color: #000000; 
             }
             QLineEdit:focus {
                 border-color: #F97316;
@@ -1512,4 +1513,5 @@ if __name__ == "__main__":
         win.setWindowIcon(app_icon)
     
     win.show()
+
     sys.exit(app.exec())

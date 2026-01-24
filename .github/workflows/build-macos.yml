@@ -1,0 +1,187 @@
+name: Build macOS Universal (PyInstaller)
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  APP_NAME: CloudflareScan
+  ENTRY_SCRIPT: cfs-mac.py
+  DIST_DIR: dist
+  BUILD_DIR: build
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  build-arm:
+    name: Build arm64 (Apple Silicon)
+    runs-on: macos-latest
+    outputs:
+      arm-artifact: ${{ steps.upload.outputs.artifact-name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install build deps (arm)
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+          pip install pyinstaller==5.13.0
+
+      - name: Prepare dirs (arm)
+        run: |
+          rm -rf ${BUILD_DIR} ${DIST_DIR} || true
+          mkdir -p ${DIST_DIR}
+
+      - name: Build (arm64) with PyInstaller
+        run: |
+          # 使用 spec 文件优先（如果你有 cfs-mac.spec）
+          if [ -f "cfs-mac.spec" ]; then
+            pyinstaller --noconfirm cfs-mac.spec
+          else
+            pyinstaller --noconfirm --onefile --windowed --name "${APP_NAME}" --icon=cfs.icns ${ENTRY_SCRIPT}
+          fi
+          # 将生成的单文件移动到统一输出目录
+          if [ -f "dist/${APP_NAME}" ]; then
+            mv dist/${APP_NAME} ${DIST_DIR}/${APP_NAME}-arm64
+          elif [ -f "dist/${APP_NAME}.app/Contents/MacOS/${APP_NAME}" ]; then
+            mv dist/${APP_NAME}.app/Contents/MacOS/${APP_NAME} ${DIST_DIR}/${APP_NAME}-arm64
+          else
+            echo "未找到 arm64 可执行文件"
+            ls -la dist || true
+            exit 1
+          fi
+
+      - name: Strip arm binary
+        run: |
+          BIN=${DIST_DIR}/${APP_NAME}-arm64
+          if [ -f "$BIN" ]; then
+            strip -u -r "$BIN" || true
+          fi
+
+      - name: Upload arm artifact
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${APP_NAME}-arm64
+          path: ${DIST_DIR}/${APP_NAME}-arm64
+
+  build-x86:
+    name: Build x86_64 (Intel) - try Rosetta
+    runs-on: macos-latest
+    needs: build-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install build deps (x86 attempt)
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          # 尝试在 Rosetta 下安装依赖
+          if arch -x86_64 true 2>/dev/null; then
+            arch -x86_64 pip install -r requirements.txt || pip install -r requirements.txt
+            arch -x86_64 pip install pyinstaller==5.13.0 || pip install pyinstaller==5.13.0
+          else
+            pip install -r requirements.txt
+            pip install pyinstaller==5.13.0
+          fi
+
+      - name: Prepare dirs (x86)
+        run: |
+          rm -rf ${BUILD_DIR} ${DIST_DIR} || true
+          mkdir -p ${DIST_DIR}
+
+      - name: Build (x86_64) with PyInstaller (Rosetta if available)
+        run: |
+          if arch -x86_64 true 2>/dev/null; then
+            echo "Rosetta available: using arch -x86_64 for x86 build"
+            if [ -f "cfs-mac.spec" ]; then
+              arch -x86_64 pyinstaller --noconfirm cfs-mac.spec || arch -x86_64 pyinstaller --noconfirm --onefile --windowed --name "${APP_NAME}" --icon=cfs.icns ${ENTRY_SCRIPT}
+            else
+              arch -x86_64 pyinstaller --noconfirm --onefile --windowed --name "${APP_NAME}" --icon=cfs.icns ${ENTRY_SCRIPT}
+            fi
+          else
+            echo "Rosetta not available on this runner. If this step fails, use a self-hosted Intel mac runner."
+            pyinstaller --noconfirm --onefile --windowed --name "${APP_NAME}" --icon=cfs.icns ${ENTRY_SCRIPT}
+          fi
+
+          if [ -f "dist/${APP_NAME}" ]; then
+            mv dist/${APP_NAME} ${DIST_DIR}/${APP_NAME}-x86_64
+          elif [ -f "dist/${APP_NAME}.app/Contents/MacOS/${APP_NAME}" ]; then
+            mv dist/${APP_NAME}.app/Contents/MacOS/${APP_NAME} ${DIST_DIR}/${APP_NAME}-x86_64
+          else
+            echo "未找到 x86_64 可执行文件"
+            ls -la dist || true
+            exit 1
+          fi
+
+      - name: Strip x86 binary
+        run: |
+          BIN=${DIST_DIR}/${APP_NAME}-x86_64
+          if [ -f "$BIN" ]; then
+            strip -u -r "$BIN" || true
+          fi
+
+      - name: Upload x86 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${APP_NAME}-x86_64
+          path: ${DIST_DIR}/${APP_NAME}-x86_64
+
+  make-universal:
+    name: Create Universal Binary (lipo)
+    runs-on: macos-latest
+    needs: [build-arm, build-x86]
+    steps:
+      - name: Download arm artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${APP_NAME}-arm64
+          path: ./artifacts/arm
+
+      - name: Download x86 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${APP_NAME}-x86_64
+          path: ./artifacts/x86
+
+      - name: Create universal dir
+        run: |
+          mkdir -p universal
+          ARM_BIN=artifacts/arm/${APP_NAME}-arm64
+          X86_BIN=artifacts/x86/${APP_NAME}-x86_64
+          UNIVERSAL_BIN=universal/${APP_NAME}
+          if [ -f "$ARM_BIN" ] && [ -f "$X86_BIN" ]; then
+            chmod +x "$ARM_BIN" "$X86_BIN"
+            lipo -create -output "$UNIVERSAL_BIN" "$ARM_BIN" "$X86_BIN"
+            chmod +x "$UNIVERSAL_BIN"
+            file "$UNIVERSAL_BIN"
+          else
+            echo "缺少任一架构的二进制，无法合并"
+            ls -la artifacts || true
+            exit 1
+          fi
+
+      - name: Final strip and optional upx
+        run: |
+          BIN=universal/${APP_NAME}
+          strip -u -r "$BIN" || true
+          if command -v upx >/dev/null 2>&1; then
+            upx --best --lzma "$BIN" || true
+          fi
+
+      - name: Upload universal artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${APP_NAME}-universal
+          path: universal/${APP_NAME}

@@ -22,21 +22,20 @@ from PySide6.QtGui import QFont, QColor, QIcon
 import os
 import platform
 
-# 修改：根据操作系统选择字体
 def get_system_font():
     system = platform.system()
     if system == "Windows":
         return "Microsoft YaHei"
-    elif system == "Darwin":  # macOS
-        # macOS 系统字体，支持中文
+    elif system == "Darwin":
         return "PingFang SC"
-    else:  # Linux 和其他系统
+    else:
         return "DejaVu Sans"
 
 SYSTEM_FONT = get_system_font()
 
-# 修改：使用系统字体
-FONT_TITLE = QFont(SYSTEM_FONT, 24)
+FONT_TITLE = QFont(SYSTEM_FONT, 28)
+FONT_TITLE.setBold(True)
+
 FONT_BTN = QFont(SYSTEM_FONT, 11)
 FONT_STATUS = QFont(SYSTEM_FONT, 10)
 FONT_LABEL = QFont(SYSTEM_FONT, 10)
@@ -304,8 +303,10 @@ class IPv4Scanner:
                     if subnet.num_addresses > 2:
                         hosts = list(subnet.hosts())
                         if hosts:
-                            random_ip = str(random.choice(hosts))
-                            ip_list.append(random_ip)
+                            sample_size = min(2, len(hosts))
+                            selected_ips = random.sample(hosts, sample_size)
+                            for ip in selected_ips:
+                                ip_list.append(str(ip))
                             
             except ValueError as e:
                 if self.log_callback:
@@ -638,7 +639,7 @@ class SpeedTestWorker(QThread):
     status_message = Signal(str)
     speed_test_completed = Signal(list)
     
-    def __init__(self, results: List[Dict], region_code: str = None, port=443):
+    def __init__(self, results: List[Dict], region_code: str = None, current_port=443):
         super().__init__()
         self.results = results
         self.region_code = region_code.upper() if region_code else None
@@ -646,9 +647,9 @@ class SpeedTestWorker(QThread):
         self.download_time_limit = 3
         self.test_host = "speed.cloudflare.com"
         self.running = True
-        self.port = port
+        self.current_port = current_port
     
-    def download_speed(self, ip: str) -> float:
+    def download_speed(self, ip: str, port: int) -> float:
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
@@ -663,13 +664,13 @@ class SpeedTestWorker(QThread):
 
         try:
             if ':' in ip:
-                addrinfo = socket.getaddrinfo(ip, self.port, socket.AF_INET6, socket.SOCK_STREAM)
+                addrinfo = socket.getaddrinfo(ip, port, socket.AF_INET6, socket.SOCK_STREAM)
                 family, socktype, proto, canonname, sockaddr = addrinfo[0]
                 sock = socket.socket(family, socktype, proto)
                 sock.settimeout(3)
                 sock.connect(sockaddr)
             else:
-                sock = socket.create_connection((ip, self.port), timeout=3)
+                sock = socket.create_connection((ip, port), timeout=3)
                 
             ss = ctx.wrap_socket(sock, server_hostname=self.test_host)
             ss.sendall(req)
@@ -708,11 +709,11 @@ class SpeedTestWorker(QThread):
             
             if self.region_code:
                 filtered_results = [r for r in self.results if r.get('iata_code') and r['iata_code'].upper() == self.region_code]
-                self.status_message.emit(f"开始地区测速：{self.region_code} ({AIRPORT_CODES.get(self.region_code, '未知地区')}) (端口: {self.port})")
+                self.status_message.emit(f"开始地区测速：{self.region_code} ({AIRPORT_CODES.get(self.region_code, '未知地区')}) (端口: {self.current_port})")
                 self.status_message.emit(f"找到 {len(filtered_results)} 个 {self.region_code} 地区的IP")
             else:
                 filtered_results = self.results
-                self.status_message.emit(f"开始完全测速 (端口: {self.port})")
+                self.status_message.emit(f"开始完全测速 (端口: {self.current_port})")
             
             if not filtered_results:
                 self.status_message.emit(f"没有找到可用的IP进行测速")
@@ -734,10 +735,10 @@ class SpeedTestWorker(QThread):
                 ip = ip_info['ip']
                 latency = ip_info.get('latency', 0)
                 
-                self.status_message.emit(f"[{i+1}/{len(target_ips)}] 正在测速 {ip} (延迟: {latency}ms)")
+                self.status_message.emit(f"[{i+1}/{len(target_ips)}] 正在测速 {ip} (延迟: {latency}ms) (端口: {self.current_port})")
                 self.progress_update.emit(i+1, len(target_ips), 0)
                 
-                download_speed = self.download_speed(ip)
+                download_speed = self.download_speed(ip, self.current_port)
                 
                 colo = get_iata_code_from_ip(ip, timeout=3)
                 if not colo or colo == "Unknown":
@@ -750,7 +751,7 @@ class SpeedTestWorker(QThread):
                     'iata_code': colo.upper() if colo else 'UNKNOWN',
                     'chinese_name': AIRPORT_CODES.get(colo.upper(), '未知地区') if colo else '未知地区',
                     'test_type': test_type,
-                    'port': self.port
+                    'port': self.current_port  
                 }
                 
                 speed_results.append(speed_result)
@@ -790,7 +791,6 @@ class IPv4ScanWorker(QThread):
         self.port = port
         
     def run(self):
-        # 修改：仅在Windows上设置ProactorEventLoopPolicy
         if sys.platform == 'win32':
             asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
         
@@ -826,7 +826,6 @@ class IPv6ScanWorker(QThread):
         self.port = port
         
     def run(self):
-        # 修改：仅在Windows上设置ProactorEventLoopPolicy
         if sys.platform == 'win32':
             asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
         
@@ -854,13 +853,12 @@ class IPv6ScanWorker(QThread):
 class CloudflareScanUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("CloudFlare Scan - 小琳解说")
+        self.setWindowTitle("CloudFlare Scan - 小琳解说 v2.0")
         
         self.resize(450, 800)
         self.setMinimumSize(430, 600)
         
-        # 修改：根据操作系统调整样式表
-        if platform.system() == "Darwin":  # macOS
+        if platform.system() == "Darwin":  
             self.setStyleSheet(f"""
                 QWidget {{
                     font-family: "{SYSTEM_FONT}", sans-serif;
@@ -920,6 +918,7 @@ class CloudflareScanUI(QWidget):
         self.speed_testing = False
         self.scan_results = []
         self.speed_results = []
+        self.current_scan_port = 443
         
         self.init_ui()
     
@@ -929,7 +928,6 @@ class CloudflareScanUI(QWidget):
         btn.setFont(FONT_BTN)
         btn.setEnabled(enabled)
         btn.setCursor(Qt.PointingHandCursor)
-        # 修改：使用系统字体
         btn.setStyleSheet(f"""
             QPushButton {{
                 background: {color};
@@ -953,7 +951,6 @@ class CloudflareScanUI(QWidget):
         btn.setFont(FONT_BTN)
         btn.setEnabled(enabled)
         btn.setCursor(Qt.PointingHandCursor)
-        # 修改：使用系统字体
         btn.setStyleSheet(f"""
             QPushButton {{
                 background: #EF4444;
@@ -984,12 +981,10 @@ class CloudflareScanUI(QWidget):
         title.setAlignment(Qt.AlignCenter)
         main.addWidget(title)
 
-        # 控制区域布局
         control = QVBoxLayout()
         control.setSpacing(SPACING)
         control.setAlignment(Qt.AlignCenter)
 
-        # 第一行：扫描按钮和地区码输入
         row1 = QHBoxLayout()
         row1.setSpacing(SPACING)
         row1.setAlignment(Qt.AlignCenter)
@@ -1004,7 +999,7 @@ class CloudflareScanUI(QWidget):
         self.input_region.setFixedSize(BTN_W, BTN_H)
         self.input_region.setFont(FONT_BTN)
         self.input_region.setPlaceholderText("输入地区码")
-        # 修改：使用系统字体
+
         self.input_region.setStyleSheet(f"""
             QLineEdit {{
                 background: white;
@@ -1023,7 +1018,6 @@ class CloudflareScanUI(QWidget):
         row1.addWidget(self.btn_ipv6)
         row1.addWidget(self.input_region)
 
-        # 第二行：停止按钮和测速按钮
         row2 = QHBoxLayout()
         row2.setSpacing(SPACING)
         row2.setAlignment(Qt.AlignCenter)
@@ -1041,15 +1035,13 @@ class CloudflareScanUI(QWidget):
         row2.addWidget(self.btn_full)
         row2.addWidget(self.btn_area)
 
-        # 第三行：端口选择和导出按钮
         row3 = QHBoxLayout()
         row3.setSpacing(SPACING)
         row3.setAlignment(Qt.AlignCenter)
         
-        # 端口标签 - 使用按钮字体大小
         port_label = QLabel("扫描端口:")
-        port_label.setFont(FONT_BTN)  # 使用按钮字体
-        # 修改：使用系统字体
+        port_label.setFont(FONT_BTN)
+
         port_label.setStyleSheet(f"""
             color: #111827; 
             font-family: "{SYSTEM_FONT}";
@@ -1063,7 +1055,6 @@ class CloudflareScanUI(QWidget):
         self.combo_port.setFont(FONT_BTN)
         row3.addWidget(self.combo_port)
         
-        # 添加间距
         row3.addSpacing(20)
         
         self.btn_export = self.make_btn("导出结果", "#8B5CF6", enabled=False)
@@ -1076,7 +1067,6 @@ class CloudflareScanUI(QWidget):
 
         main.addLayout(control)
 
-        # 进度条
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(10)
         self.progress_bar.setTextVisible(False)
@@ -1092,7 +1082,6 @@ class CloudflareScanUI(QWidget):
         """)
         main.addWidget(self.progress_bar)
 
-        # 状态栏
         status_frame = QHBoxLayout()
         
         self.status_label = QLabel("就绪")
@@ -1117,10 +1106,8 @@ class CloudflareScanUI(QWidget):
         
         main.addLayout(status_frame)
 
-        # 状态显示区域
         status_display_label = QLabel("扫描状态和统计信息")
         status_display_label.setFont(FONT_LABEL)
-        # 修改：使用系统字体
         status_display_label.setStyleSheet(f"""
             color: #111827; 
             font-size: 14px; 
@@ -1132,7 +1119,6 @@ class CloudflareScanUI(QWidget):
         self.status_display.setFont(FONT_STATUS)
         self.status_display.setMaximumHeight(180)
         self.status_display.setReadOnly(True)
-        # 修改：使用系统字体
         self.status_display.setStyleSheet(f"""
             QTextEdit {{
                 background: #0B3C5D;
@@ -1164,10 +1150,8 @@ class CloudflareScanUI(QWidget):
         """)
         main.addWidget(self.status_display)
 
-        # 测速结果显示区域
         speed_results_label = QLabel("测速结果")
         speed_results_label.setFont(FONT_LABEL)
-        # 修改：使用系统字体
         speed_results_label.setStyleSheet(f"""
             color: #111827; 
             font-size: 14px; 
@@ -1176,23 +1160,20 @@ class CloudflareScanUI(QWidget):
         main.addWidget(speed_results_label)
 
         self.speed_table = QTableWidget()
-        self.speed_table.setColumnCount(7)  # 改为7列，增加测速类型
-        # 修改：去掉延迟和下载速度后面的单位
+        self.speed_table.setColumnCount(7)
+
         self.speed_table.setHorizontalHeaderLabels(["排名", "IP地址", "地区", "延迟", "下载速度", "端口", "测速类型"])
         
-        # 设置表头自动调节宽度 - 所有列都根据内容调整
-        for i in range(self.speed_table.columnCount()):
+        for i in range(self.speed_table.columnCount() - 1):
             self.speed_table.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeToContents)
-        
-        # 设置一些列的最小宽度，确保显示完整
-        self.speed_table.horizontalHeader().setMinimumSectionSize(58)
+
+        self.speed_table.horizontalHeader().setSectionResizeMode(self.speed_table.columnCount() - 1, QHeaderView.Stretch)
         
         self.speed_table.verticalHeader().setVisible(False)
         
         self.speed_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.speed_table.doubleClicked.connect(self.copy_table_cell)
         
-        # 修改：使用系统字体
         self.speed_table.setStyleSheet(f"""
             QTableWidget {{
                 background: #0B3C5D;
@@ -1258,6 +1239,8 @@ class CloudflareScanUI(QWidget):
         self.speed_label.setText("速度: 0 IP/秒")
         
         port = int(self.combo_port.currentText())
+        # 记录当前扫描端口
+        self.current_scan_port = port
         
         self.ipv4_scan_worker = IPv4ScanWorker(port=port)
         self.ipv4_scan_worker.progress_update.connect(self.update_progress)
@@ -1285,6 +1268,7 @@ class CloudflareScanUI(QWidget):
         self.speed_label.setText("速度: 0 IP/秒")
         
         port = int(self.combo_port.currentText())
+        self.current_scan_port = port
         
         self.ipv6_scan_worker = IPv6ScanWorker(port=port)
         self.ipv6_scan_worker.progress_update.connect(self.update_progress)
@@ -1328,9 +1312,7 @@ class CloudflareScanUI(QWidget):
         self.status_label.setText("完全测速中...")
         self.speed_label.setText("测速进度: 0/5")
         
-        port = int(self.combo_port.currentText())
-        
-        self.speed_test_worker = SpeedTestWorker(self.scan_results, port=port)
+        self.speed_test_worker = SpeedTestWorker(self.scan_results, current_port=self.current_scan_port)
         self.speed_test_worker.progress_update.connect(self.update_speed_test_progress)
         self.speed_test_worker.status_message.connect(self.update_status_message)
         self.speed_test_worker.speed_test_completed.connect(self.speed_test_finished)
@@ -1364,9 +1346,7 @@ class CloudflareScanUI(QWidget):
         self.status_label.setText(f"{region_code}地区测速中...")
         self.speed_label.setText("测速进度: 0/5")
         
-        port = int(self.combo_port.currentText())
-        
-        self.speed_test_worker = SpeedTestWorker(self.scan_results, region_code, port=port)
+        self.speed_test_worker = SpeedTestWorker(self.scan_results, region_code, current_port=self.current_scan_port)
         self.speed_test_worker.progress_update.connect(self.update_speed_test_progress)
         self.speed_test_worker.status_message.connect(self.update_status_message)
         self.speed_test_worker.speed_test_completed.connect(self.speed_test_finished)
@@ -1379,22 +1359,19 @@ class CloudflareScanUI(QWidget):
             self.status_display.append("错误：没有测速结果可以导出！")
             return
         
-        # 修改：适配macOS的文件保存对话框
         file_name, _ = QFileDialog.getSaveFileName(
-            self, "保存测速结果", f"cf_scan_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            self, "保存测速结果", f"cfs_results_{datetime.now().strftime('%Y%m%d')}.csv",
             "CSV文件 (*.csv);;所有文件 (*)"
         )
         
         if not file_name:
             return
         
-        # 确保文件以.csv结尾
         if not file_name.lower().endswith('.csv'):
             file_name += '.csv'
         
         try:
             with open(file_name, 'w', newline='', encoding='utf-8-sig') as csvfile:
-                # 修改：去掉延迟和下载速度的单位
                 fieldnames = ['排名', 'IP地址', '地区码', '地区', '延迟', '下载速度', '端口', '测速类型']
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 
@@ -1531,9 +1508,9 @@ class CloudflareScanUI(QWidget):
         self.status_display.append("扫描完成！统计信息：")
         
         if ipv4_count > 0:
-            self.status_display.append(f"可用IPv4地址: {ipv4_count} 个")
+            self.status_display.append(f"可用IPv4地址: {ipv4_count} 个 (端口: {self.current_scan_port})")
         if ipv6_count > 0:
-            self.status_display.append(f"可用IPv6地址: {ipv6_count} 个")
+            self.status_display.append(f"可用IPv6地址: {ipv6_count} 个 (端口: {self.current_scan_port})")
         
         if iata_stats:
             self.status_display.append(f"地区统计（共 {len(iata_stats)} 个不同地区）：")
@@ -1546,6 +1523,7 @@ class CloudflareScanUI(QWidget):
             self.status_display.append("这可能是暂时的网络波动，或者是这些IP没有返回地区信息。")
         
         self.status_display.append("")
+        self.status_display.append(f"扫描端口: {self.current_scan_port}")
         self.status_display.append("现在可以使用完全测速或地区测速功能。")
     
     def add_speed_results_to_table(self, results):
@@ -1612,7 +1590,7 @@ class CloudflareScanUI(QWidget):
         if results:
             self.status_display.append("")
             self.status_display.append("测速完成！！")
-            self.status_display.append(f"成功测速 {len(results)} 个IP")
+            self.status_display.append(f"成功测速 {len(results)} 个IP (端口: {self.current_scan_port})")
 
 def find_icon_file():
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -1621,7 +1599,6 @@ def find_icon_file():
     if os.path.exists(icon_path):
         return icon_path
     
-    # 修改：macOS上也可以使用.icns格式
     if platform.system() == "Darwin":
         icon_path_icns = os.path.join(current_dir, "cfs.icns")
         if os.path.exists(icon_path_icns):

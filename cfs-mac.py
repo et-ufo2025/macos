@@ -866,16 +866,41 @@ class CloudflareScanUI(QWidget):
                 }}
                 QLabel {{
                     font-family: "{SYSTEM_FONT}", sans-serif;
+                    color: #111827;
                 }}
                 QComboBox {{
                     font-family: "{SYSTEM_FONT}", sans-serif;
                     border: 1px solid #D1D5DB;
                     border-radius: 6px;
-                    padding: 5px;
+                    padding: 8px 25px 8px 10px;
                     background: white;
+                    color: #111827;
+                    selection-background-color: #F97316;
+                    selection-color: white;
                 }}
                 QComboBox:focus {{
                     border-color: #F97316;
+                }}
+                QComboBox::drop-down {{
+                    border: none;
+                    width: 25px;
+                }}
+                QComboBox::down-arrow {{
+                    image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4z" fill="%236B7280"/></svg>');
+                    width: 12px;
+                    height: 12px;
+                }}
+                QComboBox::down-arrow:on {{
+                    image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M2 8l4-4 4 4z" fill="%236B7280"/></svg>');
+                }}
+                QComboBox QAbstractItemView {{
+                    border: 1px solid #D1D5DB;
+                    border-radius: 6px;
+                    background: white;
+                    color: #111827;
+                    selection-background-color: #F97316;
+                    selection-color: white;
+                    padding: 4px;
                 }}
                 QPushButton {{
                     font-family: "{SYSTEM_FONT}", sans-serif;
@@ -889,6 +914,20 @@ class CloudflareScanUI(QWidget):
                 QHeaderView::section {{
                     font-family: "{SYSTEM_FONT}", sans-serif;
                 }}
+                QLineEdit {{
+                    font-family: "{SYSTEM_FONT}", sans-serif;
+                    border: 1px solid #D1D5DB;
+                    border-radius: 6px;
+                    padding: 8px;
+                    background: white;
+                    color: #111827;
+                }}
+                QLineEdit:focus {{
+                    border-color: #F97316;
+                }}
+                QLineEdit::placeholder {{
+                    color: #9CA3AF;
+                }}
             """)
         else:
             self.setStyleSheet(f"""
@@ -898,6 +937,7 @@ class CloudflareScanUI(QWidget):
                 }}
                 QLabel {{
                     font-family: "{SYSTEM_FONT}", sans-serif;
+                    color: #111827;
                 }}
                 QComboBox {{
                     font-family: "{SYSTEM_FONT}", sans-serif;
@@ -905,9 +945,30 @@ class CloudflareScanUI(QWidget):
                     border-radius: 6px;
                     padding: 5px;
                     background: white;
+                    color: #111827;
                 }}
                 QComboBox:focus {{
                     border-color: #F97316;
+                }}
+                QComboBox QAbstractItemView {{
+                    background-color: white;
+                    color: #111827;
+                    selection-background-color: #F97316;
+                    selection-color: white;
+                }}
+                QLineEdit {{
+                    font-family: "{SYSTEM_FONT}", sans-serif;
+                    border: 1px solid #D1D5DB;
+                    border-radius: 6px;
+                    padding: 5px;
+                    background: white;
+                    color: #111827;
+                }}
+                QLineEdit:focus {{
+                    border-color: #F97316;
+                }}
+                QLineEdit::placeholder {{
+                    color: #9CA3AF;
                 }}
             """)
         
@@ -1000,18 +1061,39 @@ class CloudflareScanUI(QWidget):
         self.input_region.setFont(FONT_BTN)
         self.input_region.setPlaceholderText("输入地区码")
 
-        self.input_region.setStyleSheet(f"""
-            QLineEdit {{
-                background: white;
-                border: 1px solid #D1D5DB;
-                border-radius: 6px;
-                padding-left: 8px;
-                font-family: "{SYSTEM_FONT}";
-            }}
-            QLineEdit:focus {{
-                border-color: #F97316;
-            }}
-        """)
+        # 为 macOS 特别设置输入框样式
+        if platform.system() == "Darwin":
+            self.input_region.setStyleSheet(f"""
+                QLineEdit {{
+                    background: white;
+                    border: 1px solid #D1D5DB;
+                    border-radius: 6px;
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    font-family: "{SYSTEM_FONT}";
+                    font-size: 11px;
+                    color: #111827;
+                }}
+                QLineEdit:focus {{
+                    border-color: #F97316;
+                }}
+                QLineEdit::placeholder {{
+                    color: #9CA3AF;
+                }}
+            """)
+        else:
+            self.input_region.setStyleSheet(f"""
+                QLineEdit {{
+                    background: white;
+                    border: 1px solid #D1D5DB;
+                    border-radius: 6px;
+                    padding-left: 8px;
+                    font-family: "{SYSTEM_FONT}";
+                }}
+                QLineEdit:focus {{
+                    border-color: #F97316;
+                }}
+            """)
         self.input_region.textChanged.connect(self.auto_uppercase)
 
         row1.addWidget(self.btn_ipv4)
@@ -1053,6 +1135,47 @@ class CloudflareScanUI(QWidget):
         self.combo_port.addItems(PORT_OPTIONS)
         self.combo_port.setCurrentText("443")
         self.combo_port.setFont(FONT_BTN)
+        
+        # 为 macOS 特别设置下拉框样式
+        if platform.system() == "Darwin":
+            self.combo_port.setStyleSheet(f"""
+                QComboBox {{
+                    background: white;
+                    border: 1px solid #D1D5DB;
+                    border-radius: 6px;
+                    padding: 8px 25px 8px 10px;
+                    font-family: "{SYSTEM_FONT}";
+                    font-size: 11px;
+                    color: #111827;
+                    selection-background-color: #F97316;
+                    selection-color: white;
+                }}
+                QComboBox:focus {{
+                    border-color: #F97316;
+                }}
+                QComboBox::drop-down {{
+                    border: none;
+                    width: 25px;
+                }}
+                QComboBox::down-arrow {{
+                    image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M2 4l4 4 4-4z" fill="%236B7280"/></svg>');
+                    width: 12px;
+                    height: 12px;
+                }}
+                QComboBox::down-arrow:on {{
+                    image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M2 8l4-4 4 4z" fill="%236B7280"/></svg>');
+                }}
+                QComboBox QAbstractItemView {{
+                    border: 1px solid #D1D5DB;
+                    border-radius: 6px;
+                    background: white;
+                    color: #111827;
+                    selection-background-color: #F97316;
+                    selection-color: white;
+                    padding: 4px;
+                }}
+            """)
+            
         row3.addWidget(self.combo_port)
         
         row3.addSpacing(20)

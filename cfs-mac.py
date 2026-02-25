@@ -1317,34 +1317,43 @@ class CloudflareScanUI(QWidget):
         if text != text.upper():
             self.input_region.setText(text.upper())
     
-    # ==================== 修复后的确认停止方法 ====================
+    # ==================== 修复后的确认停止方法（根据平台区分） ====================
     def confirm_stop_all_tasks(self):
-        """确认停止所有任务（修复 macOS 文字不显示问题）"""
+        """确认停止所有任务（根据操作系统优化显示）"""
         if not self.scanning and not self.speed_testing:
             return
 
-        # 保存当前样式表并临时清除，避免样式影响对话框
-        style_sheet = self.styleSheet()
-        self.setStyleSheet("")
+        if platform.system() == "Darwin":
+            # macOS 特殊处理：清除样式表并显式设置中文字体
+            style_sheet = self.styleSheet()
+            self.setStyleSheet("")
 
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("确认停止")
-        msg_box.setText("确定要停止当前任务吗？")
-        msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        msg_box.setDefaultButton(QMessageBox.No)
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle("确认停止")
+            msg_box.setText("确定要停止当前任务吗？")
+            msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            msg_box.setDefaultButton(QMessageBox.No)
 
-        # 显式设置字体（macOS 常用中文字体）
-        font = QFont("PingFang SC", 12)
-        msg_box.setFont(font)
+            font = QFont("PingFang SC", 12)
+            msg_box.setFont(font)
 
-        reply = msg_box.exec()
+            reply = msg_box.exec()
 
-        # 恢复样式表
-        self.setStyleSheet(style_sheet)
+            self.setStyleSheet(style_sheet)
 
-        if reply == QMessageBox.Yes:
-            self.stop_all_tasks()
-        # 用户取消，不做任何操作
+            if reply == QMessageBox.Yes:
+                self.stop_all_tasks()
+        else:
+            # Windows 及其他系统：使用标准确认对话框，保持原有美观
+            reply = QMessageBox.question(
+                self,
+                "确认停止",
+                "确定要停止当前任务吗？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                self.stop_all_tasks()
     # ============================================================
     
     def start_ipv4_scan(self):

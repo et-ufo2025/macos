@@ -1,88 +1,144 @@
-name: Build macOS Application
+name: Build macOS Apps (Separate Architectures)
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-x86_64:
+    name: Build x86_64 (Intel) Version
     runs-on: macos-latest
-    strategy:
-      matrix:
-        python-version: ["3.10"]
-        include:
-          - target: x86_64
-            suffix: x86_64
-          - target: arm64
-            suffix: arm64
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
-    
-    - name: Build application
-      run: |
-        # 为不同架构设置构建参数
-        if [ "${{ matrix.target }}" = "x86_64" ]; then
-          ARCH_FLAG=""
-          BUILD_NAME="CloudflareScan_x86_64"
-        else
-          ARCH_FLAG="--target-architecture arm64"
-          BUILD_NAME="CloudflareScan_arm64"
-        fi
-        
-        # 使用PyInstaller构建
-        python -m PyInstaller --onefile --windowed \
-          --name $BUILD_NAME \
-          --icon=cfs.icns \
-          --add-data "cfs.icns:." \
-          $ARCH_FLAG \
-          cfs-mac.py
-        
-        # 检查文件大小
-        echo "Build completed for ${{ matrix.target }}"
-        du -h "dist/$BUILD_NAME.app"
-    
-    - name: Create DMG package (可选)
-      run: |
-        # 安装create-dmg工具
-        brew install create-dmg
-        
-        # 创建DMG文件
-        BUILD_NAME="CloudflareScan_${{ matrix.suffix }}"
-        APP_PATH="dist/$BUILD_NAME.app"
-        DMG_NAME="CloudflareScan_${{ matrix.suffix }}.dmg"
-        
-        create-dmg \
-          --volname "CloudflareScan" \
-          --volicon "cfs.icns" \
-          --window-pos 200 120 \
-          --window-size 800 400 \
-          --icon-size 100 \
-          --icon "$BUILD_NAME.app" 200 190 \
-          --hide-extension "$BUILD_NAME.app" \
-          --app-drop-link 600 185 \
-          "$DMG_NAME" \
-          "dist/"
-    
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: CloudflareScan-${{ matrix.suffix }}
-        path: |
-          dist/CloudflareScan_${{ matrix.suffix }}.app
-          CloudflareScan_${{ matrix.suffix }}.dmg
-        retention-days: 7
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python for x86_64
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies and build for x86_64
+        run: |
+          arch -x86_64 /bin/bash -c "
+            python -m venv venv_x86
+            source venv_x86/bin/activate
+            pip install --upgrade pip setuptools wheel
+            if [ -f requirements.txt ]; then
+              pip install -r requirements.txt
+            else
+              pip install PyInstaller PySide6 aiohttp
+            fi
+            python -m PyInstaller \
+              --windowed \
+              --name CloudflareScan_x86_64 \
+              --icon=cfs.icns \
+              --add-data 'cfs.icns:.' \
+              --hidden-import=asyncio \
+              --hidden-import=aiohttp \
+              --hidden-import=PySide6.QtCore \
+              --hidden-import=PySide6.QtGui \
+              --hidden-import=PySide6.QtWidgets \
+              cfs-mac.py
+          "
+      - name: Create DMG for x86_64
+        run: |
+          brew install create-dmg
+          
+          create-dmg \
+            --volname "CloudflareScan (Intel)" \
+            --volicon "cfs.icns" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "CloudflareScan_x86_64.app" 200 190 \
+            --hide-extension "CloudflareScan_x86_64.app" \
+            --app-drop-link 600 185 \
+            "CloudflareScan_Intel.dmg" \
+            "dist/"
+      - name: Upload x86_64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: CloudflareScan-x86_64
+          path: |
+            dist/CloudflareScan_x86_64.app
+            CloudflareScan_Intel.dmg
+          retention-days: 7
+
+  build-arm64:
+    name: Build arm64 (Apple Silicon) Version
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python for arm64
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies and build for arm64
+        run: |
+          python -m venv venv_arm
+          source venv_arm/bin/activate
+          pip install --upgrade pip setuptools wheel
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install PyInstaller PySide6 aiohttp
+          fi
+          python -m PyInstaller \
+            --windowed \
+            --name CloudflareScan_arm64 \
+            --icon=cfs.icns \
+            --add-data 'cfs.icns:.' \
+            --hidden-import=asyncio \
+            --hidden-import=aiohttp \
+            --hidden-import=PySide6.QtCore \
+            --hidden-import=PySide6.QtGui \
+            --hidden-import=PySide6.QtWidgets \
+            cfs-mac.py
+      - name: Create DMG for arm64
+        run: |
+          brew install create-dmg
+          
+          create-dmg \
+            --volname "CloudflareScan (Apple Silicon)" \
+            --volicon "cfs.icns" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "CloudflareScan_arm64.app" 200 190 \
+            --hide-extension "CloudflareScan_arm64.app" \
+            --app-drop-link 600 185 \
+            "CloudflareScan_AppleSilicon.dmg" \
+            "dist/"
+      - name: Upload arm64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: CloudflareScan-arm64
+          path: |
+            dist/CloudflareScan_arm64.app
+            CloudflareScan_AppleSilicon.dmg
+          retention-days: 7
+
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-x86_64, build-arm64]
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download both artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release-artifacts/CloudflareScan-x86_64/CloudflareScan_Intel.dmg
+            release-artifacts/CloudflareScan-arm64/CloudflareScan_AppleSilicon.dmg
+          draft: false
+          prerelease: false

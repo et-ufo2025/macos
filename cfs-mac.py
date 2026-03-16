@@ -132,7 +132,7 @@ AIRPORT_CODES = {
 PORT_OPTIONS = ["443", "2053", "2083", "2087", "2096", "8443"]
 
 def get_iata_code_from_ip(ip: str, timeout: int = 3) -> Optional[str]:
-    test_host = "st.xiaolin666.de5.net"
+    test_host = "speed.cloudflare.com"
     
     if ':' in ip:
         urls = [

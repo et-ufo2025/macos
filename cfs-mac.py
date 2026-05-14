@@ -21,7 +21,7 @@ from PySide6.QtGui import QFont, QIcon, QIntValidator
 import os
 import platform
 
-# ---------- 系统字体 ----------
+
 def get_system_font():
     system = platform.system()
     if system == "Windows":
@@ -42,7 +42,7 @@ BTN_W = 120
 BTN_H = 32
 SPACING = 8
 
-# ---------- 样式常量 ----------
+
 LINE_EDIT_STYLE = f"""
     QLineEdit {{
         background: white;
@@ -79,7 +79,6 @@ COMBO_BOX_STYLE = f"""
     }}
 """
 
-# 统一的滚动条样式（深色背景）
 SCROLLBAR_STYLE = """
     QScrollBar:vertical {
         background: #0F4C75;
@@ -102,7 +101,6 @@ SCROLLBAR_STYLE = """
     }
 """
 
-# ---------- Cloudflare IP 段 ----------
 CF_IPV4_CIDRS = [
     "173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22",
     "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20",
@@ -110,9 +108,7 @@ CF_IPV4_CIDRS = [
     "172.64.0.0/17", "172.64.128.0/18", "172.64.192.0/19", "172.64.224.0/22",
     "172.64.229.0/24", "172.64.230.0/23", "172.64.232.0/21", "172.64.240.0/21",
     "172.64.248.0/21", "172.65.0.0/16", "172.66.0.0/16", "172.67.0.0/16",
-    "131.0.72.0/22" , "103.137.63.0/24" ,"103.192.179.0/24", "103.219.193.0/24" ,
-    "154.3.32.0/24" , "154.3.36.0/24" ,"130.162.130.0/24", "130.162.132.0/24" ,
-    "141.164.60.0/24" , "146.56.188.0/24" ,"152.70.253.0/24", "193.122.109.0/24" ,
+    "131.0.72.0/22"
 ]
 
 CF_IPV6_CIDRS = [
@@ -151,7 +147,6 @@ CF_IPV6_CIDRS = [
     "2a06:98c1:58::/48"
 ]
 
-# ---------- 机场代码映射 ----------
 AIRPORT_CODES = {
     "HKG": "香港", "TPE": "台北", "KHH": "高雄", "MFM": "澳门",
     "NRT": "东京", "HND": "东京", "KIX": "大阪", "NGO": "名古屋",
@@ -194,18 +189,14 @@ AIRPORT_CODES = {
 
 PORT_OPTIONS = ["443", "2053", "2083", "2087", "2096", "8443"]
 
-# ---------- 扫描数量控制参数 ----------
-# 每个 IPv4 /24 子网随机抽取的 IP 数量（默认 1，可根据需要增加）
 IPV4_IPS_PER_SUBNET = 1
-# 每个 IPv6 CIDR 随机抽取的最大 IP 数量（默认 200，可根据需要调整）
 IPV6_IPS_PER_CIDR = 100
 
-# ---------- 工具函数 ----------
+
 def get_iata_translation(iata_code: str) -> str:
     return AIRPORT_CODES.get(iata_code, iata_code if iata_code else "未知地区")
 
 def get_iata_code_from_ip(ip: str, timeout: int = 3) -> Optional[str]:
-    """同步方式获取 IATA 地区码（用于测速线程）"""
     test_host = "speed.cloudflare.com"
     urls = (f"https://[{ip}]/cdn-cgi/trace", f"http://[{ip}]/cdn-cgi/trace") if ':' in ip else (f"https://{ip}/cdn-cgi/trace", f"http://{ip}/cdn-cgi/trace")
     for url in urls:
@@ -260,7 +251,6 @@ def get_iata_code_from_ip(ip: str, timeout: int = 3) -> Optional[str]:
     return None
 
 async def get_iata_code_async(session: aiohttp.ClientSession, ip: str, timeout: int = 3) -> Optional[str]:
-    """异步方式获取 IATA 地区码（用于扫描线程）"""
     test_host = "speed.cloudflare.com"
     urls = (f"https://[{ip}]/cdn-cgi/trace", f"http://[{ip}]/cdn-cgi/trace") if ':' in ip else (f"https://{ip}/cdn-cgi/trace", f"http://{ip}/cdn-cgi/trace")
     headers = {"User-Agent": "Mozilla/5.0", "Host": test_host}
@@ -309,7 +299,7 @@ async def measure_tcp_latency(ip: str, port: int, ping_times: int = 2, timeout: 
             await asyncio.sleep(0.05)
     return min(latencies) if latencies else None
 
-# ---------- 通用扫描器 ----------
+
 class CloudflareScanner:
     def __init__(self, cidrs: List[str], ip_version: int, log_callback=None, progress_callback=None,
                  port=443, max_workers=100, latency_threshold=150):
@@ -428,7 +418,7 @@ class CloudflareScanner:
     def stop(self):
         self.running = False
 
-# ---------- 统一扫描 Worker ----------
+
 class ScanWorker(QThread):
     progress_update = Signal(int, int, int, float)
     status_message = Signal(str)
@@ -465,7 +455,7 @@ class ScanWorker(QThread):
         if self.scanner:
             self.scanner.stop()
 
-# ---------- 测速 Worker ----------
+
 class SpeedTestWorker(QThread):
     progress_update = Signal(int, int, float)
     status_message = Signal(str)
@@ -570,7 +560,7 @@ class SpeedTestWorker(QThread):
     def stop(self):
         self.running = False
 
-# ---------- 主界面 ----------
+
 class CloudflareScanUI(QWidget):
     def __init__(self):
         super().__init__()
@@ -615,13 +605,11 @@ class CloudflareScanUI(QWidget):
         main.setContentsMargins(14, 14, 14, 14)
         main.setSpacing(14)
 
-        # 标题
         title = QLabel('<span style="color:#ff7a18;">CloudFlare</span> <span style="color:#111827;">Scan</span>')
         title.setFont(FONT_TITLE)
         title.setAlignment(Qt.AlignCenter)
         main.addWidget(title)
 
-        # 链接
         link_layout = QHBoxLayout()
         link_layout.setAlignment(Qt.AlignCenter)
         link_layout.setSpacing(20)
@@ -633,7 +621,6 @@ class CloudflareScanUI(QWidget):
             link_layout.addWidget(lbl)
         main.addLayout(link_layout)
 
-        # 控制行1: IPv4 / IPv6 / 停止
         row1 = QHBoxLayout()
         row1.addStretch()
         self.btn_ipv4 = self.make_btn("IPv4 扫描", "#3B82F6")
@@ -649,7 +636,6 @@ class CloudflareScanUI(QWidget):
         row1.addWidget(self.btn_stop)
         row1.addStretch()
 
-        # 控制行2: 地区测速 / 完全测速 / 导出
         row2 = QHBoxLayout()
         row2.addStretch()
         self.btn_area = self.make_btn("地区测速", "#EC4899", enabled=False)
@@ -665,7 +651,6 @@ class CloudflareScanUI(QWidget):
         row2.addWidget(self.btn_export)
         row2.addStretch()
 
-        # 控制行3: 地区码输入 / 测速数量 / 端口选择
         row3 = QHBoxLayout()
         row3.addStretch()
         self.input_region = QLineEdit()
@@ -682,7 +667,7 @@ class CloudflareScanUI(QWidget):
         speed_cnt_layout = QHBoxLayout(speed_cnt_widget)
         speed_cnt_layout.setContentsMargins(0,0,0,0)
         speed_cnt_layout.setSpacing(5)
-        speed_cnt_layout.addWidget(QLabel("测速数量:"))
+        speed_cnt_layout.addWidget(QLabel("测速数量"))
         self.input_speed_count = QLineEdit()
         self.input_speed_count.setFixedHeight(BTN_H)
         self.input_speed_count.setFont(FONT_BTN)
@@ -698,7 +683,7 @@ class CloudflareScanUI(QWidget):
         port_layout = QHBoxLayout(port_widget)
         port_layout.setContentsMargins(0,0,0,0)
         port_layout.setSpacing(5)
-        port_layout.addWidget(QLabel("端口:"))
+        port_layout.addWidget(QLabel("端口"))
         self.combo_port = QComboBox()
         self.combo_port.setFixedHeight(BTN_H)
         self.combo_port.setFont(FONT_BTN)
@@ -709,7 +694,6 @@ class CloudflareScanUI(QWidget):
         row3.addWidget(port_widget)
         row3.addStretch()
 
-        # 控制行4: 并发线程数 / 延迟上限
         row4 = QHBoxLayout()
         row4.addStretch()
         workers_widget = QWidget()
@@ -717,7 +701,7 @@ class CloudflareScanUI(QWidget):
         workers_layout = QHBoxLayout(workers_widget)
         workers_layout.setContentsMargins(0,0,0,0)
         workers_layout.setSpacing(5)
-        workers_layout.addWidget(QLabel("并发线程:"))
+        workers_layout.addWidget(QLabel("并发线程"))
         self.input_workers = QLineEdit()
         self.input_workers.setFixedHeight(BTN_H)
         self.input_workers.setFont(FONT_BTN)
@@ -733,7 +717,7 @@ class CloudflareScanUI(QWidget):
         latency_layout = QHBoxLayout(latency_widget)
         latency_layout.setContentsMargins(0,0,0,0)
         latency_layout.setSpacing(5)
-        latency_layout.addWidget(QLabel("延迟上限:"))
+        latency_layout.addWidget(QLabel("延迟上限"))
         self.input_latency = QLineEdit()
         self.input_latency.setFixedHeight(BTN_H)
         self.input_latency.setFont(FONT_BTN)
@@ -752,14 +736,12 @@ class CloudflareScanUI(QWidget):
         control_layout.addLayout(row4)
         main.addLayout(control_layout)
 
-        # 进度条
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(10)
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setStyleSheet("QProgressBar{background:#E5E7EB;border-radius:5px;}QProgressBar::chunk{background:#22C55E;border-radius:5px;}")
         main.addWidget(self.progress_bar)
 
-        # 状态栏
         status_frame = QHBoxLayout()
         self.status_label = QLabel("就绪")
         self.status_label.setStyleSheet(f"color:#6B7280;font-size:12px;padding:5px;font-family:'{SYSTEM_FONT}';")
@@ -770,7 +752,6 @@ class CloudflareScanUI(QWidget):
         status_frame.addWidget(self.speed_label)
         main.addLayout(status_frame)
 
-        # Tab 按钮
         tab_btn_layout = QHBoxLayout()
         tab_btn_layout.addStretch()
         self.tab_btn_log = QPushButton("扫描日志")
@@ -788,9 +769,7 @@ class CloudflareScanUI(QWidget):
         tab_btn_layout.addStretch()
         main.addLayout(tab_btn_layout)
 
-        # Stacked Widget
         self.stacked = QStackedWidget()
-        # 日志页
         self.log_tab = QWidget()
         log_layout = QVBoxLayout(self.log_tab)
         log_layout.setContentsMargins(0,0,0,0)
@@ -810,7 +789,6 @@ class CloudflareScanUI(QWidget):
         """)
         log_layout.addWidget(self.status_display)
         self.stacked.addWidget(self.log_tab)
-        # 测速结果页
         self.speed_tab = QWidget()
         speed_tab_layout = QVBoxLayout(self.speed_tab)
         speed_tab_layout.setContentsMargins(0,0,0,0)
@@ -901,6 +879,7 @@ class CloudflareScanUI(QWidget):
         except:
             self.status_display.append("错误：测速数量必须在1-50之间！")
             return
+
         self.speed_testing = True
         self.update_ui_state(True)
         self.clear_speed_cards()
@@ -979,8 +958,12 @@ class CloudflareScanUI(QWidget):
         self.btn_stop.setEnabled(False)
 
     def scan_finished(self, results):
-        self.scan_results = results
-        self.show_scan_summary(results)
+        if results:
+            known_results = [r for r in results if r.get('iata_code') and r.get('iata_code') != 'UNKNOWN']
+        else:
+            known_results = []
+        self.scan_results = known_results
+        self.show_scan_summary(self.scan_results)
 
     def speed_test_finished(self, results):
         self.speed_results = results
@@ -1033,14 +1016,14 @@ class CloudflareScanUI(QWidget):
 
     def show_scan_summary(self, results):
         if not results:
-            self.status_display.append("\n扫描完成！未找到任何可用IP地址。")
+            self.status_display.append("\n扫描完成！未找到任何已知地区的可用IP地址。")
             return
         ipv4 = sum(1 for r in results if ':' not in r['ip'])
         ipv6 = len(results) - ipv4
         iata_stats = {}
         for r in results:
             code = r.get('iata_code')
-            if code and code != "UNKNOWN":
+            if code:
                 key = f"{code} ({r['chinese_name']})"
                 iata_stats[key] = iata_stats.get(key, 0) + 1
         self.status_display.append("\n" + "="*25)
@@ -1054,7 +1037,7 @@ class CloudflareScanUI(QWidget):
             for iata, cnt in sorted(iata_stats.items(), key=lambda x: x[1], reverse=True):
                 self.status_display.append(f"  {iata}: {cnt}个IP")
         else:
-            self.status_display.append("提示：本次扫描未获取到具体的地区码信息（可能都是UNKNOWN）。")
+            self.status_display.append("提示：本次扫描未获取到具体的地区码信息。")
         self.status_display.append(f"\n扫描端口: {self.current_scan_port}\n现在可以使用完全测速或地区测速功能。")
 
     def display_speed_results(self, results):
@@ -1068,12 +1051,10 @@ class CloudflareScanUI(QWidget):
             layout = QHBoxLayout(card)
             layout.setContentsMargins(12,8,12,8)
             layout.setSpacing(10)
-            # 序号
             num = QLabel(str(i))
             num.setFixedWidth(20)
             num.setStyleSheet("color:white;font-size:13px;")
             layout.addWidget(num)
-            # 信息区域
             info = QVBoxLayout()
             info.setSpacing(2)
             ip_label = QLabel(r['ip'])
@@ -1083,7 +1064,6 @@ class CloudflareScanUI(QWidget):
             info.addWidget(ip_label)
             info.addWidget(detail_label)
             layout.addLayout(info, 1)
-            # 复制按钮
             copy_btn = QPushButton("复制")
             copy_btn.setFixedSize(60,30)
             copy_btn.setCursor(Qt.PointingHandCursor)

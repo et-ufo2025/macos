@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton,
     QLineEdit, QProgressBar, QVBoxLayout, QHBoxLayout,
     QTextEdit, QComboBox, QFileDialog, QMessageBox,
-    QScrollArea, QFrame, QStackedWidget
+    QScrollArea, QFrame, QStackedWidget, QDialog, QDialogButtonBox
 )
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtGui import QFont, QIcon, QIntValidator
@@ -79,6 +79,7 @@ COMBO_BOX_STYLE = f"""
     }}
 """
 
+
 SCROLLBAR_STYLE = """
     QScrollBar:vertical {
         background: #0F4C75;
@@ -100,6 +101,7 @@ SCROLLBAR_STYLE = """
         background: none;
     }
 """
+
 
 CF_IPV4_CIDRS = [
     "173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22",
@@ -147,6 +149,7 @@ CF_IPV6_CIDRS = [
     "2a06:98c1:58::/48"
 ]
 
+
 AIRPORT_CODES = {
     "HKG": "香港", "TPE": "台北", "KHH": "高雄", "MFM": "澳门",
     "NRT": "东京", "HND": "东京", "KIX": "大阪", "NGO": "名古屋",
@@ -188,6 +191,7 @@ AIRPORT_CODES = {
 }
 
 PORT_OPTIONS = ["443", "2053", "2083", "2087", "2096", "8443"]
+
 
 IPV4_IPS_PER_SUBNET = 1
 IPV6_IPS_PER_CIDR = 100
@@ -424,7 +428,7 @@ class ScanWorker(QThread):
     status_message = Signal(str)
     scan_completed = Signal(list)
 
-    def __init__(self, ip_version: int, port=443, max_workers=200, latency_threshold=220):
+    def __init__(self, ip_version: int, port=443, max_workers=150, latency_threshold=220):
         super().__init__()
         self.ip_version = ip_version
         self.port = port
@@ -561,11 +565,125 @@ class SpeedTestWorker(QThread):
         self.running = False
 
 
+class CustomDialog(QDialog):
+    def __init__(self, message: str,
+                 buttons: int = QDialogButtonBox.Ok,
+                 parent=None):
+        super().__init__(parent)
+
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setModal(True)
+
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(12, 12, 12, 12)
+        outer_layout.setSpacing(0)
+
+        panel = QFrame()
+        panel.setObjectName("dialogPanel")
+        panel.setStyleSheet(f"""
+            QFrame#dialogPanel {{
+                background-color: white;
+                border: 1px solid #D1D5DB;
+                border-radius: 12px;
+            }}
+
+            QLabel {{
+                background: transparent;
+                border: none;
+                font-family: "{SYSTEM_FONT}";
+                font-size: 15px;
+                color: #111827;
+            }}
+
+            QDialogButtonBox {{
+                background: transparent;
+                border: none;
+            }}
+
+            QPushButton {{
+                background: #F97316;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 6px 18px;
+                min-width: 62px;
+                min-height: 20px;
+                font-family: "{SYSTEM_FONT}";
+                font-size: 15px;
+            }}
+
+            QPushButton:hover {{
+                background: #EA580C;
+            }}
+
+            QPushButton:pressed {{
+                background: #C2410C;
+            }}
+        """)
+
+        outer_layout.addWidget(panel)
+
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(24, 24, 24, 20)
+        layout.setSpacing(18)
+
+        msg_label = QLabel(message)
+        msg_label.setWordWrap(True)
+        msg_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(msg_label)
+
+        button_box = QDialogButtonBox(buttons)
+        button_box.setCenterButtons(True)
+
+        button_box.setStyleSheet("""
+            QDialogButtonBox {
+                background: transparent;
+                border: none;
+            }
+        """)
+
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+
+        yes_btn = button_box.button(QDialogButtonBox.Yes)
+        no_btn = button_box.button(QDialogButtonBox.No)
+
+        if yes_btn:
+            yes_btn.clicked.connect(self.accept)
+
+        if no_btn:
+            no_btn.clicked.connect(self.reject)
+
+        layout.addWidget(button_box)
+
+        self.setFixedSize(320, 160)
+
+    @staticmethod
+    def warning(parent, message):
+        dialog = CustomDialog(
+            message,
+            QDialogButtonBox.Ok,
+            parent
+        )
+        return dialog.exec()
+
+    @staticmethod
+    def question(parent, message):
+        dialog = CustomDialog(
+            message,
+            QDialogButtonBox.Yes | QDialogButtonBox.No,
+            parent
+        )
+        return dialog.exec() == QDialog.Accepted
+
+
 class CloudflareScanUI(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("CloudFlare Scan - 小琳解说 V4.0")
-        self.resize(450, 750)
+        self.resize(430, 750)
         self.setMinimumSize(420, 600)
         self.setStyleSheet(f"QWidget{{font-family:'{SYSTEM_FONT}';background:#F9FAFB;}}")
         self.ipv4_scan_worker = None
@@ -667,7 +785,7 @@ class CloudflareScanUI(QWidget):
         speed_cnt_layout = QHBoxLayout(speed_cnt_widget)
         speed_cnt_layout.setContentsMargins(0,0,0,0)
         speed_cnt_layout.setSpacing(5)
-        speed_cnt_layout.addWidget(QLabel("测速数量"))
+        speed_cnt_layout.addWidget(QLabel("测速数量:"))
         self.input_speed_count = QLineEdit()
         self.input_speed_count.setFixedHeight(BTN_H)
         self.input_speed_count.setFont(FONT_BTN)
@@ -683,7 +801,7 @@ class CloudflareScanUI(QWidget):
         port_layout = QHBoxLayout(port_widget)
         port_layout.setContentsMargins(0,0,0,0)
         port_layout.setSpacing(5)
-        port_layout.addWidget(QLabel("端口"))
+        port_layout.addWidget(QLabel("端口:"))
         self.combo_port = QComboBox()
         self.combo_port.setFixedHeight(BTN_H)
         self.combo_port.setFont(FONT_BTN)
@@ -701,13 +819,13 @@ class CloudflareScanUI(QWidget):
         workers_layout = QHBoxLayout(workers_widget)
         workers_layout.setContentsMargins(0,0,0,0)
         workers_layout.setSpacing(5)
-        workers_layout.addWidget(QLabel("并发线程"))
+        workers_layout.addWidget(QLabel("并发线程:"))
         self.input_workers = QLineEdit()
         self.input_workers.setFixedHeight(BTN_H)
         self.input_workers.setFont(FONT_BTN)
-        self.input_workers.setText("200")
+        self.input_workers.setText("150")
         self.input_workers.setStyleSheet(LINE_EDIT_STYLE)
-        self.input_workers.setValidator(QIntValidator(1,500))
+        self.input_workers.setValidator(QIntValidator(1, 300))
         workers_layout.addWidget(self.input_workers, 1)
         row4.addWidget(workers_widget)
         row4.addSpacing(SPACING)
@@ -717,7 +835,7 @@ class CloudflareScanUI(QWidget):
         latency_layout = QHBoxLayout(latency_widget)
         latency_layout.setContentsMargins(0,0,0,0)
         latency_layout.setSpacing(5)
-        latency_layout.addWidget(QLabel("延迟上限"))
+        latency_layout.addWidget(QLabel("延迟上限:"))
         self.input_latency = QLineEdit()
         self.input_latency.setFixedHeight(BTN_H)
         self.input_latency.setFont(FONT_BTN)
@@ -789,6 +907,7 @@ class CloudflareScanUI(QWidget):
         """)
         log_layout.addWidget(self.status_display)
         self.stacked.addWidget(self.log_tab)
+
         self.speed_tab = QWidget()
         speed_tab_layout = QVBoxLayout(self.speed_tab)
         speed_tab_layout.setContentsMargins(0,0,0,0)
@@ -831,12 +950,25 @@ class CloudflareScanUI(QWidget):
     def confirm_stop(self):
         if not self.scanning and not self.speed_testing:
             return
-        if QMessageBox.question(self, '确认停止', '确定要停止当前任务吗？', QMessageBox.Yes|QMessageBox.No) == QMessageBox.Yes:
+        if CustomDialog.question(self, "确定要停止当前任务吗？"):
             self.stop_all()
 
     def start_scan(self, version):
         if self.scanning or self.speed_testing:
             return
+
+        workers_text = self.input_workers.text().strip()
+        if not workers_text:
+            workers = 150
+        else:
+            try:
+                workers = int(workers_text)
+            except ValueError:
+                workers = 150
+        if workers < 1 or workers > 300:
+            CustomDialog.warning(self, "并发线程数范围1-300")
+            return
+
         self.scanning = True
         self.update_ui_state(True)
         self.scan_results = []
@@ -849,10 +981,6 @@ class CloudflareScanUI(QWidget):
         self.speed_label.setText("速度: 0 IP/秒")
         port = int(self.combo_port.currentText())
         self.current_scan_port = port
-        try:
-            workers = max(1, min(500, int(self.input_workers.text() or "200")))
-        except:
-            workers = 200
         try:
             latency = max(50, int(self.input_latency.text() or "220"))
         except:

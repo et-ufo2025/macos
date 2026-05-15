@@ -256,7 +256,7 @@ def get_iata_code_from_ip(ip: str, timeout: int = 3) -> Optional[str]:
 
 async def get_iata_code_async(session: aiohttp.ClientSession, ip: str, timeout: int = 3) -> Optional[str]:
     test_host = "speed.cloudflare.com"
-    urls = (f"https://[{ip}]/cdn-cgi/trace", f"http://[{ip}]/cdn-cgi/trace") if ':' in ip else (f"https://{ip}/cdn-cgi/trace", f"http://{ip}/cdn-cgi/trace")
+    urls = (f"http://[{ip}]/cdn-cgi/trace", f"https://[{ip}]/cdn-cgi/trace") if ':' in ip else (f"http://{ip}/cdn-cgi/trace", f"https://{ip}/cdn-cgi/trace")
     headers = {"User-Agent": "Mozilla/5.0", "Host": test_host}
     ssl_ctx = ssl.create_default_context()
     ssl_ctx.check_hostname = False
@@ -793,7 +793,9 @@ class CloudflareScanUI(QWidget):
         speed_cnt_layout = QHBoxLayout(speed_cnt_widget)
         speed_cnt_layout.setContentsMargins(0,0,0,0)
         speed_cnt_layout.setSpacing(5)
-        speed_cnt_layout.addWidget(QLabel("测速数量:"))
+        label_speed_cnt = QLabel("测速数量")
+        label_speed_cnt.setFont(FONT_BTN)
+        speed_cnt_layout.addWidget(label_speed_cnt)
         self.input_speed_count = QLineEdit()
         self.input_speed_count.setFixedHeight(BTN_H)
         self.input_speed_count.setFont(FONT_BTN)
@@ -809,7 +811,9 @@ class CloudflareScanUI(QWidget):
         port_layout = QHBoxLayout(port_widget)
         port_layout.setContentsMargins(0,0,0,0)
         port_layout.setSpacing(5)
-        port_layout.addWidget(QLabel("端口:"))
+        label_port = QLabel("端口")
+        label_port.setFont(FONT_BTN)
+        port_layout.addWidget(label_port)
         self.combo_port = QComboBox()
         self.combo_port.setFixedHeight(BTN_H)
         self.combo_port.setFont(FONT_BTN)
@@ -827,7 +831,9 @@ class CloudflareScanUI(QWidget):
         workers_layout = QHBoxLayout(workers_widget)
         workers_layout.setContentsMargins(0,0,0,0)
         workers_layout.setSpacing(5)
-        workers_layout.addWidget(QLabel("并发线程:"))
+        label_workers = QLabel("并发线程")
+        label_workers.setFont(FONT_BTN)
+        workers_layout.addWidget(label_workers)
         self.input_workers = QLineEdit()
         self.input_workers.setFixedHeight(BTN_H)
         self.input_workers.setFont(FONT_BTN)
@@ -843,7 +849,9 @@ class CloudflareScanUI(QWidget):
         latency_layout = QHBoxLayout(latency_widget)
         latency_layout.setContentsMargins(0,0,0,0)
         latency_layout.setSpacing(5)
-        latency_layout.addWidget(QLabel("延迟上限:"))
+        label_latency = QLabel("延迟上限")
+        label_latency.setFont(FONT_BTN)
+        latency_layout.addWidget(label_latency)
         self.input_latency = QLineEdit()
         self.input_latency.setFixedHeight(BTN_H)
         self.input_latency.setFont(FONT_BTN)

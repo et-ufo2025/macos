@@ -685,7 +685,15 @@ class CloudflareScanUI(QWidget):
         self.setWindowTitle("CloudFlare Scan - 小琳解说 V4.0")
         self.resize(430, 750)
         self.setMinimumSize(420, 600)
-        self.setStyleSheet(f"QWidget{{font-family:'{SYSTEM_FONT}';background:#F9FAFB;}}")
+        self.setStyleSheet(f"""
+            QWidget {{
+                font-family: '{SYSTEM_FONT}';
+                background: #F9FAFB;
+            }}
+            QLabel {{
+                color: #111827;
+            }}
+        """)
         self.ipv4_scan_worker = None
         self.ipv6_scan_worker = None
         self.speed_test_worker = None

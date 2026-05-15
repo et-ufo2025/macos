@@ -42,10 +42,10 @@ jobs:
               --hidden-import=PySide6.QtWidgets \
               cfs-mac.py
           "
+
       - name: Create DMG for x86_64
         run: |
           brew install create-dmg
-          
           create-dmg \
             --volname "CloudflareScan (Intel)" \
             --volicon "cfs.icns" \
@@ -57,13 +57,14 @@ jobs:
             --app-drop-link 600 185 \
             "CloudflareScan_Intel.dmg" \
             "dist/"
+          # 删除不再需要的 .app 文件夹
+          rm -rf dist
+
       - name: Upload x86_64 artifacts
         uses: actions/upload-artifact@v4
         with:
           name: CloudflareScan-x86_64
-          path: |
-            dist/CloudflareScan_x86_64.app
-            CloudflareScan_Intel.dmg
+          path: CloudflareScan_Intel.dmg   # 只上传 dmg 文件
           retention-days: 7
 
   build-arm64:
@@ -99,10 +100,10 @@ jobs:
             --hidden-import=PySide6.QtGui \
             --hidden-import=PySide6.QtWidgets \
             cfs-mac.py
+
       - name: Create DMG for arm64
         run: |
           brew install create-dmg
-          
           create-dmg \
             --volname "CloudflareScan (Apple Silicon)" \
             --volicon "cfs.icns" \
@@ -114,13 +115,14 @@ jobs:
             --app-drop-link 600 185 \
             "CloudflareScan_AppleSilicon.dmg" \
             "dist/"
+          # 删除不再需要的 .app 文件夹
+          rm -rf dist
+
       - name: Upload arm64 artifacts
         uses: actions/upload-artifact@v4
         with:
           name: CloudflareScan-arm64
-          path: |
-            dist/CloudflareScan_arm64.app
-            CloudflareScan_AppleSilicon.dmg
+          path: CloudflareScan_AppleSilicon.dmg   # 只上传 dmg 文件
           retention-days: 7
 
   create-release:

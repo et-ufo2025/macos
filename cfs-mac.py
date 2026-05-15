@@ -382,6 +382,10 @@ class CloudflareScanner:
             last_update = 0.0
             for fut in asyncio.as_completed(tasks):
                 if not self.running:
+                    # 取消所有尚未完成的任务
+                    for task in tasks:
+                        if not task.done():
+                            task.cancel()
                     break
                 result = await fut
                 completed += 1

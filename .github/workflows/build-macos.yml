@@ -6,8 +6,8 @@ on:
       - 'v*'
   workflow_dispatch:
 
-# 可选：添加环境变量作为保险
 env:
+  # 强制所有 JavaScript Actions 使用 Node.js 24（作为双重保险）
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -16,10 +16,10 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5  # 升级到 v5，支持 Node.js 24
+        uses: actions/checkout@v5  # ✅ 升级到 v5，支持 Node.js 24
 
       - name: Setup Python for x86_64
-        uses: actions/setup-python@v6  # 升级到 v6，支持 Node.js 24
+        uses: actions/setup-python@v6  # ✅ 升级到 v6，支持 Node.js 24
         with:
           python-version: '3.13'
 
@@ -65,10 +65,10 @@ jobs:
           rm -rf dist
 
       - name: Upload x86_64 artifacts
-        uses: actions/upload-artifact@v6  # 升级到 v6，原生支持 Node.js 24
+        uses: actions/upload-artifact@v6  # ✅ 升级到 v6，原生支持 Node.js 24
         with:
           name: CloudflareScan-x86_64
-          path: CloudflareScan_Intel.dmg   # 只上传 dmg 文件
+          path: CloudflareScan_Intel.dmg
           retention-days: 7
 
   build-arm64:
@@ -76,10 +76,10 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5  # 升级到 v5
+        uses: actions/checkout@v5  # ✅ 升级到 v5
 
       - name: Setup Python for arm64
-        uses: actions/setup-python@v6  # 升级到 v6
+        uses: actions/setup-python@v6  # ✅ 升级到 v6
         with:
           python-version: '3.13'
 
@@ -119,14 +119,13 @@ jobs:
             --app-drop-link 600 185 \
             "CloudflareScan_AppleSilicon.dmg" \
             "dist/"
-          # 删除不再需要的 .app 文件夹
           rm -rf dist
 
       - name: Upload arm64 artifacts
-        uses: actions/upload-artifact@v6  # 升级到 v6
+        uses: actions/upload-artifact@v6  # ✅ 升级到 v6
         with:
           name: CloudflareScan-arm64
-          path: CloudflareScan_AppleSilicon.dmg   # 只上传 dmg 文件
+          path: CloudflareScan_AppleSilicon.dmg
           retention-days: 7
 
   create-release:
@@ -136,12 +135,13 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download both artifacts
-        uses: actions/download-artifact@v6  # 升级到 v6
+        uses: actions/download-artifact@v6  # ✅ 升级到 v6
+
         with:
           path: release-artifacts
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2  # 升级到 v2，支持 Node.js 24
+        uses: softprops/action-gh-release@v4  # ✅ 从 v1 升级到 v4，原生支持 Node.js 24
         with:
           files: |
             release-artifacts/CloudflareScan-x86_64/CloudflareScan_Intel.dmg

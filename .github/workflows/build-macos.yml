@@ -11,9 +11,11 @@ jobs:
     name: Build Intel (x86_64) DMG
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      # 升级到 v7，原生支持 Node.js 24[reference:0]
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      # 升级到 v7，原生支持 Node.js 24[reference:2][reference:3]
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
 
@@ -23,7 +25,6 @@ jobs:
             python -m venv venv_x86
             source venv_x86/bin/activate
             pip install --upgrade pip setuptools wheel
-            # 若存在 requirements.txt 则使用，否则手动安装
             if [ -f requirements.txt ]; then
               pip install -r requirements.txt
             else
@@ -44,7 +45,7 @@ jobs:
 
       - name: Create DMG for x86_64
         run: |
-          # 移除未信任的 aws/tap（若存在）以消除警告
+          # 移除未信任的 tap 以消除警告
           brew untap aws/tap 2>/dev/null || true
           brew install create-dmg
           create-dmg \
@@ -60,19 +61,22 @@ jobs:
             dist/
 
       - name: Upload Intel DMG artifact
-        uses: actions/upload-artifact@v4
+        # 升级到 v7，原生支持 Node.js 24[reference:4]
+        uses: actions/upload-artifact@v7
         with:
           name: CloudflareScan-Intel
           path: CloudflareScan_Intel.dmg
-          retention-days: 7
+          retention-days: 90
 
   build-arm64:
     name: Build Apple Silicon (arm64) DMG
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      # 升级到 v7，原生支持 Node.js 24
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      # 升级到 v7，原生支持 Node.js 24
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
 
@@ -100,6 +104,7 @@ jobs:
 
       - name: Create DMG for arm64
         run: |
+          # 移除未信任的 tap 以消除警告
           brew untap aws/tap 2>/dev/null || true
           brew install create-dmg
           create-dmg \
@@ -115,8 +120,9 @@ jobs:
             dist/
 
       - name: Upload ARM64 DMG artifact
-        uses: actions/upload-artifact@v4
+        # 升级到 v7，原生支持 Node.js 24
+        uses: actions/upload-artifact@v7
         with:
           name: CloudflareScan-ARM64
           path: CloudflareScan_AppleSilicon.dmg
-          retention-days: 7
+          retention-days: 90

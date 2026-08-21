@@ -1,4 +1,4 @@
-name: Build macOS Apps (Separate Architectures)
+name: Build macOS DMG (Separate Architectures)
 
 on:
   push:
@@ -8,14 +8,12 @@ on:
 
 jobs:
   build-x86_64:
-    name: Build x86_64 (Intel) Version
+    name: Build Intel (x86_64) DMG
     runs-on: macos-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python for x86_64
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
 
@@ -25,6 +23,7 @@ jobs:
             python -m venv venv_x86
             source venv_x86/bin/activate
             pip install --upgrade pip setuptools wheel
+            # 若存在 requirements.txt 则使用，否则手动安装
             if [ -f requirements.txt ]; then
               pip install -r requirements.txt
             else
@@ -45,10 +44,12 @@ jobs:
 
       - name: Create DMG for x86_64
         run: |
+          # 移除未信任的 aws/tap（若存在）以消除警告
+          brew untap aws/tap 2>/dev/null || true
           brew install create-dmg
           create-dmg \
             --volname "CloudflareScan (Intel)" \
-            --volicon "cfs.icns" \
+            --volicon cfs.icns \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
@@ -56,26 +57,22 @@ jobs:
             --hide-extension "CloudflareScan_x86_64.app" \
             --app-drop-link 600 185 \
             "CloudflareScan_Intel.dmg" \
-            "dist/"
-          # 删除不再需要的 .app 文件夹
-          rm -rf dist
+            dist/
 
-      - name: Upload x86_64 artifacts
+      - name: Upload Intel DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CloudflareScan-x86_64
-          path: CloudflareScan_Intel.dmg   # 只上传 dmg 文件
+          name: CloudflareScan-Intel
+          path: CloudflareScan_Intel.dmg
           retention-days: 7
 
   build-arm64:
-    name: Build arm64 (Apple Silicon) Version
+    name: Build Apple Silicon (arm64) DMG
     runs-on: macos-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python for arm64
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
 
@@ -103,10 +100,11 @@ jobs:
 
       - name: Create DMG for arm64
         run: |
+          brew untap aws/tap 2>/dev/null || true
           brew install create-dmg
           create-dmg \
             --volname "CloudflareScan (Apple Silicon)" \
-            --volicon "cfs.icns" \
+            --volicon cfs.icns \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
@@ -114,33 +112,11 @@ jobs:
             --hide-extension "CloudflareScan_arm64.app" \
             --app-drop-link 600 185 \
             "CloudflareScan_AppleSilicon.dmg" \
-            "dist/"
-          # 删除不再需要的 .app 文件夹
-          rm -rf dist
+            dist/
 
-      - name: Upload arm64 artifacts
+      - name: Upload ARM64 DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CloudflareScan-arm64
-          path: CloudflareScan_AppleSilicon.dmg   # 只上传 dmg 文件
+          name: CloudflareScan-ARM64
+          path: CloudflareScan_AppleSilicon.dmg
           retention-days: 7
-
-  create-release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    needs: [build-x86_64, build-arm64]
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - name: Download both artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-artifacts
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            release-artifacts/CloudflareScan-x86_64/CloudflareScan_Intel.dmg
-            release-artifacts/CloudflareScan-arm64/CloudflareScan_AppleSilicon.dmg
-          draft: false
-          prerelease: false

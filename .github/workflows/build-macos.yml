@@ -6,16 +6,20 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# 可选：添加环境变量作为保险
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-x86_64:
     name: Build x86_64 (Intel) Version
     runs-on: macos-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5  # 升级到 v5，支持 Node.js 24
 
       - name: Setup Python for x86_64
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6  # 升级到 v6，支持 Node.js 24
         with:
           python-version: '3.13'
 
@@ -61,7 +65,7 @@ jobs:
           rm -rf dist
 
       - name: Upload x86_64 artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6  # 升级到 v6，原生支持 Node.js 24
         with:
           name: CloudflareScan-x86_64
           path: CloudflareScan_Intel.dmg   # 只上传 dmg 文件
@@ -72,10 +76,10 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5  # 升级到 v5
 
       - name: Setup Python for arm64
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6  # 升级到 v6
         with:
           python-version: '3.13'
 
@@ -119,7 +123,7 @@ jobs:
           rm -rf dist
 
       - name: Upload arm64 artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6  # 升级到 v6
         with:
           name: CloudflareScan-arm64
           path: CloudflareScan_AppleSilicon.dmg   # 只上传 dmg 文件
@@ -132,12 +136,12 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download both artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6  # 升级到 v6
         with:
           path: release-artifacts
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2  # 升级到 v2，支持 Node.js 24
         with:
           files: |
             release-artifacts/CloudflareScan-x86_64/CloudflareScan_Intel.dmg

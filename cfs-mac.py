@@ -35,7 +35,7 @@ SYSTEM_FONT = get_system_font()
 
 FONT_TITLE = QFont(SYSTEM_FONT, 28)
 FONT_TITLE.setBold(True)
-FONT_BTN = QFont(SYSTEM_FONT, 11)   # ← 修改此数字可统一调整所有控件字体大小
+FONT_BTN = QFont(SYSTEM_FONT, 11)
 FONT_STATUS = QFont(SYSTEM_FONT, 10)
 
 BTN_W = 120
@@ -192,7 +192,6 @@ AIRPORT_CODES = {
 
 PORT_OPTIONS = ["443", "2053", "2083", "2087", "2096", "8443"]
 
-# 默认采样数（将在UI中覆盖）
 IPV4_IPS_PER_SUBNET = 1
 IPV6_IPS_PER_CIDR = 100
 
@@ -755,7 +754,6 @@ class CloudflareScanUI(QWidget):
             link_layout.addWidget(lbl)
         main.addLayout(link_layout)
 
-        # 第一行：扫描按钮
         row1 = QHBoxLayout()
         row1.addStretch()
         self.btn_ipv4 = self.make_btn("IPv4 扫描", "#3B82F6")
@@ -772,7 +770,6 @@ class CloudflareScanUI(QWidget):
         row1.addStretch()
         main.addLayout(row1)
 
-        # 第二行：测速按钮
         row2 = QHBoxLayout()
         row2.addStretch()
         self.btn_area = self.make_btn("地区测速", "#EC4899", enabled=False)
@@ -789,7 +786,6 @@ class CloudflareScanUI(QWidget):
         row2.addStretch()
         main.addLayout(row2)
 
-        # 第三行：地区码、测速数量、端口
         row3 = QHBoxLayout()
         row3.addStretch()
         self.input_region = QLineEdit()
@@ -838,11 +834,9 @@ class CloudflareScanUI(QWidget):
         row3.addStretch()
         main.addLayout(row3)
 
-        # 第四行：并发线程、延迟上限、V4随机、V6随机
         row4 = QHBoxLayout()
         row4.addStretch()
 
-        # 并发线程
         workers_widget = QWidget()
         workers_layout = QHBoxLayout(workers_widget)
         workers_layout.setContentsMargins(0,0,0,0)
@@ -862,7 +856,6 @@ class CloudflareScanUI(QWidget):
         row4.addWidget(workers_widget)
         row4.addSpacing(5)
 
-        # 延迟上限
         latency_widget = QWidget()
         latency_layout = QHBoxLayout(latency_widget)
         latency_layout.setContentsMargins(0,0,0,0)
@@ -882,7 +875,6 @@ class CloudflareScanUI(QWidget):
         row4.addWidget(latency_widget)
         row4.addSpacing(5)
 
-        # V4采样 （限制 1~10）
         v4_sample_widget = QWidget()
         v4_sample_layout = QHBoxLayout(v4_sample_widget)
         v4_sample_layout.setContentsMargins(0,0,0,0)
@@ -896,13 +888,12 @@ class CloudflareScanUI(QWidget):
         self.input_v4_sample.setFont(FONT_BTN)
         self.input_v4_sample.setText("1")
         self.input_v4_sample.setStyleSheet(LINE_EDIT_STYLE)
-        self.input_v4_sample.setValidator(QIntValidator(1, 10))
+        self.input_v4_sample.setValidator(QIntValidator(1, 5))
         self.input_v4_sample.setFixedWidth(33)
         v4_sample_layout.addWidget(self.input_v4_sample)
         row4.addWidget(v4_sample_widget)
         row4.addSpacing(5)
 
-        # V6采样 （限制 100~500）
         v6_sample_widget = QWidget()
         v6_sample_layout = QHBoxLayout(v6_sample_widget)
         v6_sample_layout.setContentsMargins(0,0,0,0)
@@ -916,7 +907,7 @@ class CloudflareScanUI(QWidget):
         self.input_v6_sample.setFont(FONT_BTN)
         self.input_v6_sample.setText("100")
         self.input_v6_sample.setStyleSheet(LINE_EDIT_STYLE)
-        self.input_v6_sample.setValidator(QIntValidator(100, 500))
+        self.input_v6_sample.setValidator(QIntValidator(100, 300))
         self.input_v6_sample.setFixedWidth(42)
         v6_sample_layout.addWidget(self.input_v6_sample)
         row4.addWidget(v6_sample_widget)
@@ -924,14 +915,12 @@ class CloudflareScanUI(QWidget):
         row4.addStretch()
         main.addLayout(row4)
 
-        # 进度条
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(10)
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setStyleSheet("QProgressBar{background:#E5E7EB;border-radius:5px;}QProgressBar::chunk{background:#22C55E;border-radius:5px;}")
         main.addWidget(self.progress_bar)
 
-        # 状态栏
         status_frame = QHBoxLayout()
         self.status_label = QLabel("就绪")
         self.status_label.setStyleSheet(f"color:#6B7280;font-size:12px;padding:5px;font-family:'{SYSTEM_FONT}';")
@@ -942,7 +931,6 @@ class CloudflareScanUI(QWidget):
         status_frame.addWidget(self.speed_label)
         main.addLayout(status_frame)
 
-        # 选项卡切换
         tab_btn_layout = QHBoxLayout()
         tab_btn_layout.addStretch()
         self.tab_btn_log = QPushButton("扫描日志")
@@ -960,7 +948,6 @@ class CloudflareScanUI(QWidget):
         tab_btn_layout.addStretch()
         main.addLayout(tab_btn_layout)
 
-        # 堆叠窗口
         self.stacked = QStackedWidget()
         self.log_tab = QWidget()
         log_layout = QVBoxLayout(self.log_tab)
@@ -1027,7 +1014,6 @@ class CloudflareScanUI(QWidget):
         if CustomDialog.question(self, "确定要停止当前任务吗？"):
             self.stop_all()
 
-    # ==================== 修改 start_scan 方法 ====================
     def start_scan(self, version):
         if self.scanning or self.speed_testing:
             return
@@ -1044,28 +1030,23 @@ class CloudflareScanUI(QWidget):
             CustomDialog.warning(self, "并发线程数范围1-300")
             return
 
-        # 根据 version 只校验对应的采样输入框
         if version == 4:
-            # 只校验 IPv4 采样数 (1~10)
             try:
                 v4_sample = int(self.input_v4_sample.text().strip() or "1")
             except ValueError:
                 v4_sample = 1
-            if v4_sample < 1 or v4_sample > 10:
-                CustomDialog.warning(self, "IPv4 采样数必须在 1 ~ 10 之间！")
+            if v4_sample < 1 or v4_sample > 5:
+                CustomDialog.warning(self, "IPv4 采样数范围 1 ~ 5 之间！")
                 return
-            # IPv6 采样数使用默认值 100（不会被实际使用，但传给 Worker 需合法）
             v6_sample = 100
-        else:  # version == 6
-            # 只校验 IPv6 采样数 (100~500)
+        else:
             try:
                 v6_sample = int(self.input_v6_sample.text().strip() or "100")
             except ValueError:
                 v6_sample = 100
-            if v6_sample < 100 or v6_sample > 500:
-                CustomDialog.warning(self, "IPv6 采样数必须在 100 ~ 500 之间！")
+            if v6_sample < 100 or v6_sample > 300:
+                CustomDialog.warning(self, "IPv6 采样数范围 100 ~ 300 之间！")
                 return
-            # IPv4 采样数使用默认值 1（不会被实际使用）
             v4_sample = 1
 
         self.scanning = True
@@ -1095,7 +1076,6 @@ class CloudflareScanUI(QWidget):
         else:
             self.ipv6_scan_worker = worker
         worker.start()
-    # ==================== 修改结束 ====================
 
     def start_full_speed(self):
         if self.speed_testing or self.scanning or not self.scan_results:

@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ========== Intel (x86_64) 构建 ==========
+  # ---------- Intel (x86_64) 构建 ----------
   build-x86_64:
     name: Build Intel (x86_64) Version
-    runs-on: macos-13                     # 原生 Intel runner（不再模拟）
+    runs-on: macos-13                     # 原生 Intel runner
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,7 +20,12 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install UPX (optional, for smaller binaries)
+      # 解决 Homebrew tap 信任警告
+      - name: Clean Homebrew taps
+        run: |
+          brew untap aws/tap 2>/dev/null || true
+
+      - name: Install UPX (optional)
         run: brew install upx
 
       - name: Install dependencies and build
@@ -28,13 +33,12 @@ jobs:
           python -m venv venv
           source venv/bin/activate
           pip install --upgrade pip setuptools wheel
-          # 如果存在 requirements.txt 则安装，否则默认安装
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
             pip install PyInstaller PySide6 aiohttp
           fi
-          # 使用 UPX 压缩可执行文件，并排除不需要的大模块（减少体积）
+          # 使用 UPX 压缩，排除无用模块
           python -m PyInstaller \
             --windowed \
             --name CloudflareScan_x86_64 \
@@ -52,7 +56,7 @@ jobs:
             --exclude-module=test \
             cfs-mac.py
 
-      - name: Create DMG with create-dmg
+      - name: Create DMG
         run: |
           brew install create-dmg
           create-dmg \
@@ -67,20 +71,20 @@ jobs:
             CloudflareScan_Intel.dmg \
             dist/
 
-      - name: Verify DMG integrity
+      - name: Verify DMG
         run: |
           hdiutil attach -nobrowse -mountpoint /tmp/mnt CloudflareScan_Intel.dmg
           hdiutil detach /tmp/mnt
           echo "✅ DMG is valid"
 
-      - name: Upload Intel DMG artifact
+      - name: Upload Intel DMG
         uses: actions/upload-artifact@v4
         with:
           name: CloudflareScan-Intel
           path: CloudflareScan_Intel.dmg
-          retention-days: 70
+          retention-days: 7
 
-  # ========== ARM (Apple Silicon) 构建 ==========
+  # ---------- ARM (Apple Silicon) 构建 ----------
   build-arm64:
     name: Build ARM (Apple Silicon) Version
     runs-on: macos-14                     # 原生 ARM runner（或 macos-latest）
@@ -92,6 +96,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+
+      # 解决 Homebrew tap 信任警告
+      - name: Clean Homebrew taps
+        run: |
+          brew untap aws/tap 2>/dev/null || true
 
       - name: Install UPX
         run: brew install upx
@@ -123,7 +132,7 @@ jobs:
             --exclude-module=test \
             cfs-mac.py
 
-      - name: Create DMG with create-dmg
+      - name: Create DMG
         run: |
           brew install create-dmg
           create-dmg \
@@ -138,20 +147,20 @@ jobs:
             CloudflareScan_AppleSilicon.dmg \
             dist/
 
-      - name: Verify DMG integrity
+      - name: Verify DMG
         run: |
           hdiutil attach -nobrowse -mountpoint /tmp/mnt CloudflareScan_AppleSilicon.dmg
           hdiutil detach /tmp/mnt
           echo "✅ DMG is valid"
 
-      - name: Upload ARM DMG artifact
+      - name: Upload ARM DMG
         uses: actions/upload-artifact@v4
         with:
           name: CloudflareScan-ARM64
           path: CloudflareScan_AppleSilicon.dmg
-          retention-days: 70
+          retention-days: 7
 
-  # ========== 创建 Release ==========
+  # ---------- 创建 Release ----------
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
@@ -163,7 +172,7 @@ jobs:
         with:
           path: release-artifacts
 
-      - name: List downloaded files (debug)
+      - name: List files (debug)
         run: ls -laR release-artifacts
 
       - name: Create Release and upload assets
@@ -174,4 +183,4 @@ jobs:
             release-artifacts/CloudflareScan-ARM64/CloudflareScan_AppleSilicon.dmg
           draft: false
           prerelease: false
-          generate_release_notes: true   # 自动生成更新说明
+          generate_release_notes: true

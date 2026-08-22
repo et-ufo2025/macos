@@ -7,108 +7,81 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ---------- Intel (x86_64) 构建 ----------
   build-x86_64:
-    name: Build Intel (x86_64) Version
-    runs-on: macos-13                     # 原生 Intel runner
+    name: Build x86_64 (Intel) Version
+    runs-on: macos-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Setup Python for x86_64
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
 
-      # 解决 Homebrew tap 信任警告
-      - name: Clean Homebrew taps
+      - name: Install dependencies and build for x86_64
         run: |
-          brew untap aws/tap 2>/dev/null || true
-
-      - name: Install UPX (optional)
-        run: brew install upx
-
-      - name: Install dependencies and build
-        run: |
-          python -m venv venv
-          source venv/bin/activate
-          pip install --upgrade pip setuptools wheel
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            pip install PyInstaller PySide6 aiohttp
-          fi
-          # 使用 UPX 压缩，排除无用模块
-          python -m PyInstaller \
-            --windowed \
-            --name CloudflareScan_x86_64 \
-            --icon=cfs.icns \
-            --add-data 'cfs.icns:.' \
-            --hidden-import=asyncio \
-            --hidden-import=aiohttp \
-            --hidden-import=PySide6.QtCore \
-            --hidden-import=PySide6.QtGui \
-            --hidden-import=PySide6.QtWidgets \
-            --upx-dir="$(brew --prefix upx)/bin" \
-            --strip \
-            --exclude-module=tkinter \
-            --exclude-module=unittest \
-            --exclude-module=test \
-            cfs-mac.py
-
-      - name: Create DMG
+          arch -x86_64 /bin/bash -c "
+            python -m venv venv_x86
+            source venv_x86/bin/activate
+            pip install --upgrade pip setuptools wheel
+            if [ -f requirements.txt ]; then
+              pip install -r requirements.txt
+            else
+              pip install PyInstaller PySide6 aiohttp
+            fi
+            python -m PyInstaller \
+              --windowed \
+              --name CloudflareScan_x86_64 \
+              --icon=cfs.icns \
+              --add-data 'cfs.icns:.' \
+              --hidden-import=asyncio \
+              --hidden-import=aiohttp \
+              --hidden-import=PySide6.QtCore \
+              --hidden-import=PySide6.QtGui \
+              --hidden-import=PySide6.QtWidgets \
+              cfs-mac.py
+          "
+      - name: Create DMG for x86_64
         run: |
           brew install create-dmg
+          
           create-dmg \
             --volname "CloudflareScan (Intel)" \
-            --volicon cfs.icns \
+            --volicon "cfs.icns" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
             --icon "CloudflareScan_x86_64.app" 200 190 \
             --hide-extension "CloudflareScan_x86_64.app" \
             --app-drop-link 600 185 \
-            CloudflareScan_Intel.dmg \
-            dist/
-
-      - name: Verify DMG
-        run: |
-          hdiutil attach -nobrowse -mountpoint /tmp/mnt CloudflareScan_Intel.dmg
-          hdiutil detach /tmp/mnt
-          echo "✅ DMG is valid"
-
-      - name: Upload Intel DMG
+            "CloudflareScan_Intel.dmg" \
+            "dist/"
+      - name: Upload x86_64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CloudflareScan-Intel
-          path: CloudflareScan_Intel.dmg
+          name: CloudflareScan-x86_64
+          path: |
+            dist/CloudflareScan_x86_64.app
+            CloudflareScan_Intel.dmg
           retention-days: 7
 
-  # ---------- ARM (Apple Silicon) 构建 ----------
   build-arm64:
-    name: Build ARM (Apple Silicon) Version
-    runs-on: macos-14                     # 原生 ARM runner（或 macos-latest）
+    name: Build arm64 (Apple Silicon) Version
+    runs-on: macos-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Setup Python for arm64
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
 
-      # 解决 Homebrew tap 信任警告
-      - name: Clean Homebrew taps
+      - name: Install dependencies and build for arm64
         run: |
-          brew untap aws/tap 2>/dev/null || true
-
-      - name: Install UPX
-        run: brew install upx
-
-      - name: Install dependencies and build
-        run: |
-          python -m venv venv
-          source venv/bin/activate
+          python -m venv venv_arm
+          source venv_arm/bin/activate
           pip install --upgrade pip setuptools wheel
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
@@ -125,62 +98,47 @@ jobs:
             --hidden-import=PySide6.QtCore \
             --hidden-import=PySide6.QtGui \
             --hidden-import=PySide6.QtWidgets \
-            --upx-dir="$(brew --prefix upx)/bin" \
-            --strip \
-            --exclude-module=tkinter \
-            --exclude-module=unittest \
-            --exclude-module=test \
             cfs-mac.py
-
-      - name: Create DMG
+      - name: Create DMG for arm64
         run: |
           brew install create-dmg
+          
           create-dmg \
             --volname "CloudflareScan (Apple Silicon)" \
-            --volicon cfs.icns \
+            --volicon "cfs.icns" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
             --icon "CloudflareScan_arm64.app" 200 190 \
             --hide-extension "CloudflareScan_arm64.app" \
             --app-drop-link 600 185 \
-            CloudflareScan_AppleSilicon.dmg \
-            dist/
-
-      - name: Verify DMG
-        run: |
-          hdiutil attach -nobrowse -mountpoint /tmp/mnt CloudflareScan_AppleSilicon.dmg
-          hdiutil detach /tmp/mnt
-          echo "✅ DMG is valid"
-
-      - name: Upload ARM DMG
+            "CloudflareScan_AppleSilicon.dmg" \
+            "dist/"
+      - name: Upload arm64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CloudflareScan-ARM64
-          path: CloudflareScan_AppleSilicon.dmg
+          name: CloudflareScan-arm64
+          path: |
+            dist/CloudflareScan_arm64.app
+            CloudflareScan_AppleSilicon.dmg
           retention-days: 7
 
-  # ---------- 创建 Release ----------
   create-release:
-    name: Create GitHub Release
+    name: Create Release
     runs-on: ubuntu-latest
     needs: [build-x86_64, build-arm64]
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - name: Download both DMG artifacts
+      - name: Download both artifacts
         uses: actions/download-artifact@v4
         with:
           path: release-artifacts
 
-      - name: List files (debug)
-        run: ls -laR release-artifacts
-
-      - name: Create Release and upload assets
-        uses: softprops/action-gh-release@v2
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
         with:
           files: |
-            release-artifacts/CloudflareScan-Intel/CloudflareScan_Intel.dmg
-            release-artifacts/CloudflareScan-ARM64/CloudflareScan_AppleSilicon.dmg
+            release-artifacts/CloudflareScan-x86_64/CloudflareScan_Intel.dmg
+            release-artifacts/CloudflareScan-arm64/CloudflareScan_AppleSilicon.dmg
           draft: false
           prerelease: false
-          generate_release_notes: true
